@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>台大4D營 · AI實作課程 — 學員分析儀表板</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root{
+    --bg:#0f1226; --bg2:#171a35; --card:#ffffff; --ink:#1f2440; --muted:#6b7191;
+    --line:#e8e9f3; --primary:#5b54e6; --primary2:#8b5cf6; --teal:#0ea5e9;
+    --amber:#f59e0b; --rose:#f43f5e; --green:#10b981; --soft:#f6f7fc;
+    --shadow:0 10px 30px rgba(24,27,64,.08);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif;
+    color:var(--ink);background:var(--soft);line-height:1.65;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1180px;margin:0 auto;padding:0 20px 80px}
+  header.hero{background:linear-gradient(135deg,#5b54e6 0%,#8b5cf6 55%,#0ea5e9 130%);color:#fff;
+    padding:46px 0 110px;position:relative;overflow:hidden}
+  header.hero .wrap{padding-bottom:0}
+  .hero h1{margin:0;font-size:30px;font-weight:800;letter-spacing:.5px}
+  .hero .sub{opacity:.92;margin-top:8px;font-size:15px;max-width:760px}
+  .hero .meta{margin-top:14px;font-size:13px;opacity:.8}
+  .hero .blob{position:absolute;border-radius:50%;filter:blur(8px);opacity:.18;background:#fff}
+  .b1{width:230px;height:230px;right:-40px;top:-50px}
+  .b2{width:140px;height:140px;right:160px;bottom:20px;opacity:.12}
+  .stripe{display:flex;gap:14px;flex-wrap:wrap;margin-top:26px;position:relative;z-index:2}
+  .kpi{background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.22);backdrop-filter:blur(6px);
+    border-radius:14px;padding:14px 18px;min-width:150px;flex:1}
+  .kpi b{display:block;font-size:26px;font-weight:800;line-height:1.1}
+  .kpi span{font-size:12.5px;opacity:.9}
+  .deck{margin-top:-72px;position:relative;z-index:3;display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+  .insight{background:var(--card);border-radius:16px;padding:18px 18px 16px;box-shadow:var(--shadow);
+    border-top:4px solid var(--primary)}
+  .insight:nth-child(2){border-top-color:var(--rose)}
+  .insight:nth-child(3){border-top-color:var(--amber)}
+  .insight:nth-child(4){border-top-color:var(--teal)}
+  .insight .tag{font-size:11.5px;font-weight:700;color:var(--muted);letter-spacing:.4px}
+  .insight h3{margin:6px 0 6px;font-size:16.5px}
+  .insight p{margin:0;font-size:13px;color:#4a4f70}
+  section{margin-top:42px}
+  .sechead{display:flex;align-items:baseline;gap:12px;border-left:5px solid var(--primary);padding-left:12px;margin-bottom:6px}
+  .sechead h2{margin:0;font-size:21px}
+  .sechead span{font-size:13px;color:var(--muted)}
+  .grid{display:grid;gap:18px}
+  .g3{grid-template-columns:repeat(3,1fr)}
+  .g2{grid-template-columns:1.1fr .9fr}
+  .panel{background:var(--card);border-radius:16px;padding:20px;box-shadow:var(--shadow);border:1px solid var(--line)}
+  .panel h4{margin:0 0 2px;font-size:15.5px}
+  .panel .cap{font-size:12px;color:var(--muted);margin-bottom:12px}
+  .cwrap{position:relative;height:240px}
+  .cwrap.tall{height:300px}
+  .note{font-size:12.5px;color:#5a6080;background:var(--soft);border-radius:10px;padding:10px 12px;margin-top:12px}
+  .note b{color:var(--primary)}
+  /* segmentation */
+  .segrow{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+  .seg{border-radius:14px;padding:16px;color:#fff;position:relative;overflow:hidden}
+  .seg.beg{background:linear-gradient(135deg,#0ea5e9,#38bdf8)}
+  .seg.mid{background:linear-gradient(135deg,#5b54e6,#8b5cf6)}
+  .seg.adv{background:linear-gradient(135deg,#f59e0b,#f43f5e)}
+  .seg b.big{font-size:30px;font-weight:800;display:block;line-height:1}
+  .seg .pct{font-size:13px;opacity:.92}
+  .seg h5{margin:10px 0 4px;font-size:15px}
+  .seg p{margin:0;font-size:12.5px;opacity:.95}
+  /* strategy */
+  .strat{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}
+  .scard{background:var(--card);border-radius:14px;padding:16px 18px;box-shadow:var(--shadow);border:1px solid var(--line);
+    display:flex;gap:14px;align-items:flex-start}
+  .scard .ic{flex:0 0 38px;height:38px;border-radius:10px;display:grid;place-items:center;font-size:19px;
+    background:#eef0ff}
+  .scard h4{margin:0 0 3px;font-size:15px}
+  .scard p{margin:0;font-size:13px;color:#4a4f70}
+  /* tool decision table */
+  table.dec{width:100%;border-collapse:collapse;font-size:13px;margin-top:4px}
+  table.dec th,table.dec td{padding:9px 12px;text-align:left;border-bottom:1px solid var(--line)}
+  table.dec th{background:var(--soft);font-size:12.5px;color:var(--muted);font-weight:700}
+  table.dec td b{color:var(--primary)}
+  .pill{display:inline-block;font-size:11px;padding:2px 9px;border-radius:20px;background:#eef0ff;color:var(--primary);font-weight:700;margin-right:5px}
+  /* course timeline */
+  .tl{position:relative;margin-top:10px}
+  .tl:before{content:"";position:absolute;left:90px;top:6px;bottom:6px;width:2px;background:linear-gradient(var(--primary),var(--teal))}
+  .mod{display:grid;grid-template-columns:80px 1fr;gap:22px;margin-bottom:20px;position:relative}
+  .mod .time{text-align:right;font-weight:800;color:var(--primary);font-size:13.5px;padding-top:14px}
+  .mod .time small{display:block;font-weight:500;color:var(--muted);font-size:11px}
+  .mod .dot{position:absolute;left:84px;top:18px;width:14px;height:14px;border-radius:50%;background:#fff;border:3px solid var(--primary);z-index:2}
+  .mod .body{background:var(--card);border-radius:14px;padding:16px 18px;box-shadow:var(--shadow);border:1px solid var(--line)}
+  .mod .body h4{margin:0 0 4px;font-size:16px}
+  .mod .pain{font-size:12px;color:var(--rose);font-weight:700;margin-bottom:8px}
+  .mod ul{margin:8px 0 0;padding-left:18px;font-size:13px;color:#41476a}
+  .mod ul li{margin:3px 0}
+  .lvl{margin-top:10px;display:flex;gap:8px;flex-wrap:wrap}
+  .lvl span{font-size:11.5px;padding:3px 10px;border-radius:8px;font-weight:700}
+  .lvl .b{background:#e0f2fe;color:#0369a1}
+  .lvl .a{background:#fef3c7;color:#b45309}
+  footer{margin-top:46px;font-size:12px;color:var(--muted);text-align:center;border-top:1px solid var(--line);padding-top:18px}
+  .legend-inline{font-size:11.5px;color:var(--muted);margin-top:8px}
+  @media(max-width:920px){.deck{grid-template-columns:repeat(2,1fr)}.g3,.g2,.segrow,.strat{grid-template-columns:1fr}
+    .mod{grid-template-columns:64px 1fr;gap:14px}.tl:before{left:74px}.mod .dot{left:68px}}
+</style>
+</head>
+<body>
+<header class="hero">
+  <div class="blob b1"></div><div class="blob b2"></div>
+  <div class="wrap">
+    <h1>台大4D營 · AI實作課程</h1>
+    <div class="sub">學員狀況分析儀表板 — 從 79 份去識別化問卷，看見這群人是誰、卡在哪、想要什麼，並據此設計分層課程。</div>
+    <div class="meta">資料來源：4D營_學員資料整理_講師版.xlsx ｜ 樣本 N = 79 ｜ 製表日 2026-06-14</div>
+    <div class="stripe">
+      <div class="kpi"><b>79</b><span>位學員</span></div>
+      <div class="kpi"><b>7+</b><span>所學校跨校</span></div>
+      <div class="kpi"><b>81%</b><span>屬中階應用型</span></div>
+      <div class="kpi"><b>49%</b><span>最大痛點：分不出AI對錯</span></div>
+      <div class="kpi"><b>44%</b><span>想成為「駕馭AI的高手」</span></div>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <!-- KEY INSIGHTS -->
+  <div class="deck">
+    <div class="insight">
+      <div class="tag">核心判斷 01</div>
+      <h3>極度異質的一群</h3>
+      <p>大學部到博士、12 位社青、橫跨 7+ 校；AI 程度從「沒用過」到「自建 RAG／Agent」。單一難度必失敗，<b>必須分層</b>。</p>
+    </div>
+    <div class="insight">
+      <div class="tag">核心判斷 02</div>
+      <h3>痛點集中且可教</h3>
+      <p>四大瓶頸——查證(49%)、融入工作流(38%)、下指令(38%)、工具焦慮(34%)——剛好對應四個教學模組。</p>
+    </div>
+    <div class="insight">
+      <div class="tag">核心判斷 03</div>
+      <h3>多數是「免費仔」</h3>
+      <p>ChatGPT 88% 只用免費版、44% 三家全免費。多數沒見過前沿模型實力，課堂用付費版 demo 衝擊感最強。</p>
+    </div>
+    <div class="insight">
+      <div class="tag">核心判斷 04</div>
+      <h3>Claude 大片空白</h3>
+      <p>30% 從未用過 Claude、NotebookLM 卻人人在用。可用既有的 NotebookLM 當共同起點，用 Claude 當差異化亮點。</p>
+    </div>
+  </div>
+
+  <!-- PROFILE -->
+  <section>
+    <div class="sechead"><h2>一、學員輪廓</h2><span>他們是誰</span></div>
+    <div class="grid g3">
+      <div class="panel"><h4>身分別</h4><div class="cap">大學部為主，碩博與社青各佔一塊</div>
+        <div class="cwrap"><canvas id="cIdentity"></canvas></div></div>
+      <div class="panel"><h4>入社年資</h4><div class="cap">老手與新生兩極化，中間斷層</div>
+        <div class="cwrap"><canvas id="cTenure"></canvas></div></div>
+      <div class="panel"><h4>學校分布</h4><div class="cap">台大為主場，跨校交流是賣點</div>
+        <div class="cwrap"><canvas id="cSchool"></canvas></div></div>
+    </div>
+    <div class="note">📌 <b>53%</b> 入社兩年以上（資深社員）、<b>33%</b> 是今年新生，「一～兩年」只有 14% ——
+      課堂上同時坐著「社團老鳥」與「第一次來」的人。「未註明」40 人多為僅填系所的台大本部生，實際台大佔比應遠高於圖中 14%。</div>
+  </section>
+
+  <!-- AI LEVEL -->
+  <section>
+    <div class="sechead"><h2>二、AI 使用程度</h2><span>會到什麼地步</span></div>
+    <div class="grid g2">
+      <div class="panel"><h4>三大模型訂閱分層</h4><div class="cap">幾乎人人用過 ChatGPT／Gemini，但多數停在免費版；Claude 接觸度最低</div>
+        <div class="cwrap tall"><canvas id="cSubs"></canvas></div>
+        <div class="legend-inline">Gemini 付費率 30% 為三者最高（生態綁定）；ChatGPT 近乎全用免費版；Claude 有 24 人從未使用。</div>
+      </div>
+      <div class="panel"><h4>常用的「第三方」AI 工具（提及次數）</h4><div class="cap">NotebookLM 是壓倒性共通語言</div>
+        <div class="cwrap tall"><canvas id="cTools"></canvas></div>
+        <div class="legend-inline">另有 40 人（51%）未填其他工具，代表半數只用 ChatGPT／Gemini／Claude 三家。</div>
+      </div>
+    </div>
+
+    <div class="panel" style="margin-top:18px">
+      <h4>AI 技能分群（啟發式估計）</h4>
+      <div class="cap">依工具種類、實作經驗、是否會編排 AI 綜合判定 — 呈金字塔分布</div>
+      <div class="segrow">
+        <div class="seg beg"><b class="big">4</b><span class="pct">5.1%</span>
+          <h5>初階 · 探索型</h5><p>幾乎沒用過或不知從何開始。需要從「打開來用」手把手帶。代表：S14、S15、S25、S45。</p></div>
+        <div class="seg mid"><b class="big">64</b><span class="pct">81.0%</span>
+          <h5>中階 · 應用型</h5><p>日常用 ChatGPT／Gemini／NotebookLM 寫作業、查資料、做報告。會用但不會「駕馭」——本課主力對象。</p></div>
+        <div class="seg adv"><b class="big">11</b><span class="pct">13.9%</span>
+          <h5>進階 · 實作型</h5><p>會用 coding agent／API／自建 RAG／自動化。代表：S13(Agent+RAG)、S02(本地模型)、S41(Cursor建DB)、S06(Codex)。可當組長。</p></div>
+      </div>
+      <div class="note">📌 教學含意：<b>把進階 11 人變資源而非負擔</b> — 請他們當分組 mentor，既不無聊，又促成他們最想要的「跨校交流」。</div>
+    </div>
+  </section>
+
+  <!-- PAINS & NEEDS -->
+  <section>
+    <div class="sechead"><h2>三、痛點與需求</h2><span>卡在哪、想要什麼</span></div>
+    <div class="grid g2">
+      <div class="panel"><h4>使用 AI 的瓶頸（可複選）</h4><div class="cap">這四條，就是課程的四個模組</div>
+        <div class="cwrap tall"><canvas id="cBottle"></canvas></div></div>
+      <div class="panel"><h4>AI 應用場景（可複選）</h4><div class="cap">學習與完成工作是絕對主軸</div>
+        <div class="cwrap tall"><canvas id="cScenario"></canvas></div></div>
+    </div>
+    <div class="grid g2" style="margin-top:18px">
+      <div class="panel"><h4>對營隊的期待收穫（可複選）</h4><div class="cap">與 AI 課最相關的是「成為駕馭 AI 的數位高手」</div>
+        <div class="cwrap tall"><canvas id="cExpect"></canvas></div></div>
+      <div class="panel" style="display:flex;flex-direction:column;justify-content:center">
+        <h4>把痛點翻成洞察</h4>
+        <div class="note" style="margin-top:6px">😵‍💫 <b>幻覺與查證 (49%)</b> 是壓倒性第一痛點，文字題裡「幻覺／亂掰／一本正經胡說八道／迎合討好」反覆出現 → 必教查證。</div>
+        <div class="note">🧩 <b>無法融入工作流 (38%)</b>「每次都要重調很麻煩」 → 教第二大腦、自訂指令、自動化，而非一次性對話。</div>
+        <div class="note">🎯 <b>不會下指令 (38%)</b> → 結構化 Prompt 是入門剛需。</div>
+        <div class="note">🌪️ <b>工具焦慮 (34%)</b>「更新太快、不知從何學起」 → 給一張「任務→工具」地圖止焦慮。</div>
+        <div class="note">🔥 動機強：連<b>新生也有 31%</b> 想成為 AI 高手 → 標準可以拉高，別只教皮毛。</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- TEACHING STRATEGY -->
+  <section>
+    <div class="sechead"><h2>四、教學策略建議</h2><span>面對這群人怎麼教</span></div>
+    <div class="strat">
+      <div class="scard"><div class="ic">🪜</div><div><h4>一條主線、三種難度</h4>
+        <p>每模組設「基礎版（人人做）＋挑戰版（給進階 11 人）」；初階 4 人刻意分到有老手的組，避免掉隊。</p></div></div>
+      <div class="scard"><div class="ic">🧑‍🏫</div><div><h4>讓進階生當 mentor</h4>
+        <p>S13、S02、S41、S06 等當組長帶實作。回收他們的精力，也滿足「認識新朋友」這個第一名期待。</p></div></div>
+      <div class="scard"><div class="ic">🧗</div><div><h4>從他們會的延伸</h4>
+        <p>以 ChatGPT／Gemini／NotebookLM 為起點（已普及），不要從零講原理或歷史，直接進實戰。</p></div></div>
+      <div class="scard"><div class="ic">🛠️</div><div><h4>痛點導向、實作為王</h4>
+        <p>每段都動手改「自己真實的作業／報告」。問卷裡最有成就感的經驗幾乎都是「親手做出一個東西」。</p></div></div>
+      <div class="scard"><div class="ic">🧘</div><div><h4>扣住營隊精神</h4>
+        <p>用「AI 當第二大腦／認識自己」「領袖如何駕馭 AI 而非被取代」呼應禪定、向內覺察、領袖力等期待。</p></div></div>
+      <div class="scard"><div class="ic">⚖️</div><div><h4>談責任與成本</h4>
+        <p>幻覺查證、隱私個資、token／額度——正好對應他們自己提出的限制與焦慮，建立負責任使用觀。</p></div></div>
+    </div>
+  </section>
+
+  <!-- COURSE DESIGN -->
+  <section>
+    <div class="sechead"><h2>五、完整課程設計</h2><span>核心 3 小時版 · 可彈性壓縮為 2 小時或延伸半天</span></div>
+    <div class="panel" style="margin-bottom:18px">
+      <h4>設計總綱</h4>
+      <p style="margin:6px 0 0;font-size:13.5px;color:#41476a">
+        主題定位 <b>「從會用 AI 到駕馭 AI」</b>。四大模組對齊四大痛點，全程動手做、改自己的真實素材。
+        貫穿分層機制（基礎／挑戰），並在收束扣回 4D 營的自我覺察與領袖精神。</p>
+      <div class="lvl" style="margin-top:12px">
+        <span class="b">基礎版 = 全體 79 人</span><span class="a">挑戰版 = 進階 11 人 / 提早完成者</span>
+      </div>
+    </div>
+
+    <div class="tl">
+      <div class="mod"><div class="time">0:00<small>15 分</small></div><div class="dot"></div>
+        <div class="body"><h4>開場 ｜ 定錨與即時調查</h4>
+          <ul>
+            <li>用一個現場 AI 互動 demo 破冰，秀出「免費版 vs 前沿模型」差距製造期待。</li>
+            <li>宣告今日目標：不是學更多工具，是學會「駕馭」——呼應 44% 的高手期待。</li>
+            <li>分組（每組混入 1 位進階 mentor + 照顧 1 位初階）。</li>
+          </ul></div></div>
+
+      <div class="mod"><div class="time">0:15<small>35 分</small></div><div class="dot"></div>
+        <div class="body"><h4>模組一 ｜ 把話講對：精準下指令</h4>
+          <div class="pain">對應痛點：不會下精準指令 (38%)</div>
+          <ul>
+            <li>結構化提示框架：角色 × 任務 × 脈絡 × 格式 × 範例。</li>
+            <li>迭代追問、給壞例子讓 AI 修正。</li>
+            <li><b>實作：</b>拿自己手上一份真實作業，前後對比改寫 prompt。</li>
+          </ul>
+          <div class="lvl"><span class="b">基礎：改寫三段提示</span><span class="a">挑戰：寫一個可重用的 system prompt／自訂 GPT</span></div>
+        </div></div>
+
+      <div class="mod"><div class="time">0:50<small>35 分</small></div><div class="dot"></div>
+        <div class="body"><h4>模組二 ｜ 把關真假：辨識幻覺與查證</h4>
+          <div class="pain">對應痛點：分不出 AI 對錯 (49%，最大痛點)</div>
+          <ul>
+            <li>為何會幻覺、哪些題型最危險（數字、引用、專業文獻）。</li>
+            <li>查證 SOP：要求附來源 → 交叉比對 → 用 NotebookLM 限定來源問答降低幻覺。</li>
+            <li><b>實作：</b>抓出一段 AI 唬爛的內容並查證更正。</li>
+          </ul>
+          <div class="lvl"><span class="b">基礎：來源查證練習</span><span class="a">挑戰：用 RAG／限定語料做「接地」問答</span></div>
+        </div></div>
+
+      <div class="mod"><div class="time">1:25<small>40 分</small></div><div class="dot"></div>
+        <div class="body"><h4>模組三 ｜ 把 AI 接進生活：工作流與第二大腦</h4>
+          <div class="pain">對應痛點：無法融入工作流 (38%) · 善用既有 NotebookLM 習慣</div>
+          <ul>
+            <li>建立個人「第二大腦」：把筆記／課程資料丟進 NotebookLM 做問答、摘要、Podcast。</li>
+            <li>把重複工作自動化、跨工具串接，從「一次性對話」進到「流程」。</li>
+            <li><b>實作：</b>每人匯入一份自己的資料，產出一個可帶走的知識庫。</li>
+          </ul>
+          <div class="lvl"><span class="b">基礎：建一個 NotebookLM 筆記本</span><span class="a">挑戰：app script／Agent／API 自動化一件雜事</span></div>
+        </div></div>
+
+      <div class="mod"><div class="time">2:05<small>25 分</small></div><div class="dot"></div>
+        <div class="body"><h4>模組四 ｜ 停止焦慮：工具地圖與選型</h4>
+          <div class="pain">對應痛點：工具更新太快、學習疲勞 (34%)</div>
+          <ul>
+            <li>一張「任務 → 工具」決策圖，終結「不知道該用哪個」。</li>
+            <li>ChatGPT／Gemini／Claude 三大模型差異與適用時機（補 30% 沒用過 Claude 的空白）。</li>
+          </ul>
+          <table class="dec">
+            <tr><th>我想做的事</th><th>建議起手工具</th></tr>
+            <tr><td>讀長文／論文、限定來源問答</td><td><b>NotebookLM</b> <span class="pill">人人會</span></td></tr>
+            <tr><td>需要查證、要附最新來源</td><td><b>Perplexity / Gemini</b>（聯網）</td></tr>
+            <tr><td>長篇寫作、推理、改文件</td><td><b>Claude</b> <span class="pill">差異化亮點</span></td></tr>
+            <tr><td>日常萬用、生圖、生活助理</td><td><b>ChatGPT / Gemini</b></td></tr>
+            <tr><td>寫程式、自動化</td><td><b>Cursor / Copilot / Codex</b></td></tr>
+          </table>
+        </div></div>
+
+      <div class="mod"><div class="time">2:30<small>30 分</small></div><div class="dot"></div>
+        <div class="body"><h4>收束 ｜ 駕馭 AI 的人，與 4D 精神</h4>
+          <ul>
+            <li>扣回營隊：AI 當第二大腦來「向內覺察、認識自己」；領袖如何駕馭 AI 而非被取代。</li>
+            <li>負責任使用：幻覺、隱私個資、成本與額度（回應他們自己提的限制）。</li>
+            <li><b>行動承諾：</b>每人寫下「回去後要用 AI 解決的一件具體事」，組內分享。Q&A。</li>
+          </ul>
+          <div class="lvl"><span class="b">帶走：一份 prompt 範本 + 一個知識庫 + 一張工具地圖</span></div>
+        </div></div>
+    </div>
+  </section>
+
+  <footer>
+    台大4D營 · AI實作課程學員分析儀表板 ｜ 資料：4D營_學員資料整理_講師版.xlsx（N=79，去識別化）<br>
+    技能分群與課程模組為依問卷資料推導之教學建議，時間配置可依實際場次彈性調整。
+  </footer>
+</div>
+
+<script>
+const FONT = "'Noto Sans TC',system-ui,sans-serif";
+Chart.defaults.font.family = FONT;
+Chart.defaults.font.size = 12.5;
+Chart.defaults.color = '#5a6080';
+const PAL = ['#5b54e6','#8b5cf6','#0ea5e9','#10b981','#f59e0b','#f43f5e','#64748b','#a78bfa'];
+const pct = (v,t)=> (v/t*100).toFixed(0)+'%';
+
+new Chart(cIdentity,{type:'doughnut',
+  data:{labels:['大學部 53','社青 12','碩士生 11','博士生 3'],
+    datasets:[{data:[53,12,11,3],backgroundColor:PAL,borderWidth:2,borderColor:'#fff'}]},
+  options:{cutout:'58%',plugins:{legend:{position:'right',labels:{boxWidth:12,padding:10}}}}});
+
+new Chart(cTenure,{type:'doughnut',
+  data:{labels:['兩年以上 42','新生<1年 26','一年 8','兩年 3'],
+    datasets:[{data:[42,26,8,3],backgroundColor:['#5b54e6','#0ea5e9','#a78bfa','#cbd5e1'],borderWidth:2,borderColor:'#fff'}]},
+  options:{cutout:'58%',plugins:{legend:{position:'right',labels:{boxWidth:12,padding:10}}}}});
+
+new Chart(cSchool,{type:'bar',
+  data:{labels:['未註明*','台大','師大','政大','輔大','國北教','大同','陽明交大'],
+    datasets:[{data:[40,11,9,7,4,3,3,2],backgroundColor:'#8b5cf6',borderRadius:6}]},
+  options:{indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{grid:{display:false}}}}});
+
+new Chart(cSubs,{type:'bar',
+  data:{labels:['Gemini','ChatGPT','Claude'],
+    datasets:[
+      {label:'從未使用',data:[2,1,24],backgroundColor:'#cbd5e1',borderRadius:4},
+      {label:'免費版',data:[53,69,52],backgroundColor:'#5b54e6',borderRadius:4},
+      {label:'付費',data:[24,9,3],backgroundColor:'#f59e0b',borderRadius:4}
+    ]},
+  options:{scales:{x:{stacked:true,grid:{display:false}},y:{stacked:true,beginAtZero:true}},
+    plugins:{legend:{position:'bottom',labels:{boxWidth:12}},
+      tooltip:{callbacks:{afterLabel:c=>pct(c.parsed.y,79)+' of 79'}}}}});
+
+new Chart(cTools,{type:'bar',
+  data:{labels:['NotebookLM','Perplexity','Copilot','Gamma','Suno','Midjourney','DeepSeek','Cursor/Codex'],
+    datasets:[{data:[21,8,7,5,3,2,2,2],backgroundColor:'#0ea5e9',borderRadius:6}]},
+  options:{indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{grid:{display:false},beginAtZero:true}}}});
+
+new Chart(cBottle,{type:'bar',
+  data:{labels:['分不出AI對錯/幻覺','無法融入工作流','不會下精準指令','工具更新太快·疲勞','其他','完全沒用過'],
+    datasets:[{data:[39,30,30,27,11,4],
+      backgroundColor:['#f43f5e','#f59e0b','#8b5cf6','#5b54e6','#94a3b8','#cbd5e1'],borderRadius:6}]},
+  options:{indexAxis:'y',plugins:{legend:{display:false},
+    tooltip:{callbacks:{afterLabel:c=>pct(c.parsed.x,79)+' 的學員'}}},
+    scales:{x:{grid:{display:false},beginAtZero:true}}}});
+
+new Chart(cScenario,{type:'bar',
+  data:{labels:['學習輔助','完成工作/作業','生活疑難','第二大腦','日常對話','認識自己','生活助手'],
+    datasets:[{data:[67,63,47,42,25,23,20],backgroundColor:'#5b54e6',borderRadius:6}]},
+  options:{indexAxis:'y',plugins:{legend:{display:false},
+    tooltip:{callbacks:{afterLabel:c=>pct(c.parsed.x,79)+' 的學員'}}},
+    scales:{x:{grid:{display:false},beginAtZero:true}}}});
+
+new Chart(cExpect,{type:'bar',
+  data:{labels:['認識新朋友','向內覺察','親近大自然','禪定','★駕馭AI高手','領袖特質','交流解惑'],
+    datasets:[{data:[54,51,47,43,35,35,19],
+      backgroundColor:['#94a3b8','#94a3b8','#94a3b8','#94a3b8','#f59e0b','#94a3b8','#94a3b8'],borderRadius:6}]},
+  options:{indexAxis:'y',plugins:{legend:{display:false},
+    tooltip:{callbacks:{afterLabel:c=>pct(c.parsed.x,79)+' 的學員'}}},
+    scales:{x:{grid:{display:false},beginAtZero:true}}}});
+</script>
+</body>
+</html>
